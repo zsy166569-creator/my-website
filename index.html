@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>比奇堡测评系统 - 荣誉殿堂</title>
+    <!-- 引入 Tailwind CSS 样式库 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Lucide 图标库 -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            /* 字体已变更为更清晰正式的 微软雅黑 */
+            font-family: 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(to bottom, #bae6fd, #60a5fa, #2563eb);
+            min-height: 100vh;
+            overflow-x: hidden;
+            margin: 0;
+        }
+
+        /* 隐藏滚动条但保留功能 */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #93c5fd; border-radius: 10px; }
+
+        /* 海底背景装饰 */
+        .sand-bottom {
+            position: fixed;
+            bottom: 0; left: 0; width: 100%; height: 120px;
+            background-color: #e9d5a1;
+            border-top: 8px solid #d4b872;
+            border-top-left-radius: 50% 30px;
+            border-top-right-radius: 50% 30px;
+            z-index: 0;
+        }
+
+        /* 海底元素动画 */
+        .sea-element { position: fixed; z-index: 0; pointer-events: none; opacity: 0.6; user-select: none; }
+        
+        @keyframes swimRight {
+            0% { transform: translateX(-10vw) translateY(0); }
+            50% { transform: translateX(50vw) translateY(-20px); }
+            100% { transform: translateX(110vw) translateY(0); }
+        }
+        @keyframes swimLeft {
+            0% { transform: translateX(110vw) translateY(0) scaleX(-1); }
+            50% { transform: translateX(50vw) translateY(20px) scaleX(-1); }
+            100% { transform: translateX(-10vw) translateY(0) scaleX(-1); }
+        }
+        @keyframes floatUp {
+            0% { transform: translateY(100vh) scale(0.5); opacity: 0; }
+            50% { opacity: 0.5; }
+            100% { transform: translateY(-10vh) scale(1.2); opacity: 0; }
+        }
+
+        .fish-right { animation: swimRight 20s linear infinite; }
+        .fish-left { animation: swimLeft 25s linear infinite; }
+        .bubble { animation: floatUp 8s ease-in infinite; background: rgba(255,255,255,0.3); border: 1px solid rgba(255,255,255,0.6); border-radius: 50%; }
+
+        /* 页面切换逻辑 */
+        .page { display: none; opacity: 0; transition: opacity 0.3s ease-in-out; }
+        .page.active { display: block; opacity: 1; animation: popIn 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+        
+        @keyframes popIn {
+            0% { transform: scale(0.95); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* 选项点击反馈 */
+        .option-btn { transition: all 0.2s; }
+        .option-btn:active { transform: scale(0.98); }
+    </style>
+</head>
+<body>
+
+    <!-- 🌊 海底环境与动画元素 -->
+    <div class="sand-bottom"></div>
+    <div class="sea-element fish-right text-4xl" style="top: 20%; animation-delay: 0s;">🐠</div>
+    <div class="sea-element fish-left text-5xl" style="top: 40%; animation-delay: -5s;">🐡</div>
+    <div class="sea-element fish-right text-3xl" style="top: 60%; animation-delay: -10s;">🐙</div>
+    <div class="sea-element text-4xl animate-pulse" style="bottom: 20px; left: 10%;">🪸</div>
+    <div class="sea-element text-4xl animate-pulse" style="bottom: 15px; right: 15%;">🐚</div>
+    <div class="sea-element text-3xl" style="bottom: 30px; left: 50%;">🦀</div>
+    
+    <!-- 气泡 -->
+    <div class="sea-element bubble w-4 h-4" style="left: 20%; animation-delay: 0s; animation-duration: 5s;"></div>
+    <div class="sea-element bubble w-8 h-8" style="left: 60%; animation-delay: 2s; animation-duration: 7s;"></div>
+    <div class="sea-element bubble w-5 h-5" style="left: 80%; animation-delay: 4s; animation-duration: 6s;"></div>
+
+    <!-- 弹窗提示 -->
+    <div id="toast" class="fixed top-8 left-1/2 -translate-x-1/2 bg-pink-500 text-white px-8 py-4 rounded-full shadow-2xl font-black text-lg flex items-center border-4 border-pink-100 z-[200] transform -translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+        <span id="toast-msg">提示信息</span>
+    </div>
+
+    <!-- 顶部导航栏 -->
+    <nav class="bg-white/80 backdrop-blur-md shadow-md px-4 py-3 flex justify-between items-center border-b-4 border-cyan-300 relative z-50 sticky top-0">
+        <div class="text-xl sm:text-2xl font-black text-cyan-700 flex items-center tracking-tighter">
+            <i data-lucide="waves" class="w-6 h-6 sm:w-8 sm:h-8 mr-2 text-cyan-500"></i>比奇堡测评室
+        </div>
+        <div class="flex bg-cyan-100/50 p-1 rounded-2xl border-2 border-cyan-200 shadow-inner">
+            <button onclick="window.navTo('student')" id="nav-student" class="px-4 py-2 rounded-xl font-black text-xs sm:text-sm bg-yellow-400 text-yellow-900 border-b-4 border-yellow-600 transition-all shadow-md">挑战者视角</button>
+            <button onclick="window.navTo('teacher')" id="nav-teacher" class="px-4 py-2 rounded-xl font-black text-xs sm:text-sm text-cyan-700 hover:bg-cyan-100 transition-all ml-1 border-b-4 border-transparent">蟹老板后台</button>
+        </div>
+    </nav>
+
+    <!-- 主体内容区 -->
+    <main class="p-4 sm:p-6 relative z-20 max-w-4xl mx-auto">
+        
+        <!-- 1. 菠萝屋锁站页面 -->
+        <div id="page-locked" class="page">
+            <div class="flex flex-col items-center justify-center pt-20">
+                <div class="bg-white/90 p-10 rounded-[50px] border-[10px] border-gray-400 shadow-2xl text-center w-full max-w-md">
+                    <div class="relative inline-block mb-8">
+                        <i data-lucide="lock" class="w-24 h-24 text-gray-400 mx-auto"></i>
+                        <i data-lucide="x-circle" class="w-10 h-10 text-red-500 absolute -bottom-2 -right-2 bg-white rounded-full"></i>
+                    </div>
+                    <h1 class="text-4xl font-black text-gray-800 mb-4 tracking-tighter">菠萝屋休息中</h1>
+                    <p class="text-gray-500 font-bold mb-8 text-lg leading-tight">本次测评已圆满结束！<br/>挑战入口暂时关闭了哦~</p>
+                    <div class="bg-gray-100 p-5 rounded-3xl border-2 border-gray-200 font-bold text-gray-400 text-xs italic">
+                        🔒 知识产权受保护 · 只有管理员能开启
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. 学生登录页面 -->
+        <div id="page-student-login" class="page active">
+            <div class="flex flex-col items-center justify-center pt-10">
+                <div class="relative w-full max-w-md">
+                    
+                    <!-- 🍍 全新重绘：高度还原的菠萝屋 SVG -->
+                    <div class="relative z-10 w-full flex justify-center -mb-6 pointer-events-none">
+                        <svg viewBox="0 0 400 500" class="w-72 h-auto drop-shadow-2xl">
+                            <!-- 顶部叶子 -->
+                            <path d="M 200 160 Q 200 20 220 10 Q 230 60 200 140" fill="#4ade80" stroke="#166534" stroke-width="4"/>
+                            <path d="M 190 150 Q 150 40 160 20 Q 180 70 190 140" fill="#4ade80" stroke="#166534" stroke-width="4"/>
+                            <path d="M 180 150 Q 100 70 100 40 Q 140 100 180 150" fill="#4ade80" stroke="#166534" stroke-width="4"/>
+                            <path d="M 170 160 Q 60 110 50 80 Q 110 140 170 160" fill="#4ade80" stroke="#166534" stroke-width="4"/>
+                            <path d="M 210 150 Q 250 40 240 20 Q 220 70 210 140" fill="#4ade80" stroke="#166534" stroke-width="4"/>
+                            <path d="M 220 150 Q 300 70 300 40 Q 260 100 220 150" fill="#4ade80" stroke="#166534" stroke-width="4"/>
+                            <path d="M 230 160 Q 340 110 350 80 Q 290 140 230 160" fill="#4ade80" stroke="#166534" stroke-width="4"/>
+
+                            <!-- 烟囱 (右上方) -->
+                            <path d="M 290 300 L 330 300 L 330 220 C 330 210 350 210 350 220 L 350 280 L 330 280" fill="#94a3b8" stroke="#475569" stroke-width="6"/>
+                            <ellipse cx="340" cy="215" rx="20" ry="10" fill="#cbd5e1" stroke="#475569" stroke-width="6"/>
+                            
+                            <!-- 菠萝主体 -->
+                            <defs>
+                                <pattern id="crisscross" width="60" height="60" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+                                    <line x1="0" y1="0" x2="0" y2="60" stroke="#c2410c" stroke-width="3" opacity="0.6"/>
+                                    <line x1="0" y1="0" x2="60" y2="0" stroke="#c2410c" stroke-width="3" opacity="0.6"/>
+                                </pattern>
+                            </defs>
+                            <path d="M 120 150 C 20 250 20 400 120 480 L 280 480 C 380 400 380 250 280 150 C 240 100 160 100 120 150 Z" fill="#f97316" stroke="#9a3412" stroke-width="8"/>
+                            <path d="M 120 150 C 20 250 20 400 120 480 L 280 480 C 380 400 380 250 280 150 C 240 100 160 100 120 150 Z" fill="url(#crisscross)"/>
+
+                            <!-- 窗户 1 (左侧大窗) -->
+                            <circle cx="110" cy="270" r="35" fill="#94a3b8" stroke="#475569" stroke-width="6"/>
+                            <circle cx="110" cy="270" r="25" fill="#e2e8f0" stroke="#475569" stroke-width="4"/>
+                            <circle cx="110" cy="270" r="20" fill="#60a5fa" stroke="#3b82f6" stroke-width="2"/>
+                            <circle cx="102" cy="262" r="5" fill="#bfdbfe"/>
+                            <!-- 窗户1 铆钉 -->
+                            <circle cx="110" cy="242" r="3" fill="#475569"/>
+                            <circle cx="110" cy="298" r="3" fill="#475569"/>
+                            <circle cx="82" cy="270" r="3" fill="#475569"/>
+                            <circle cx="138" cy="270" r="3" fill="#475569"/>
+
+                            <!-- 窗户 2 (右侧小窗) -->
+                            <circle cx="300" cy="350" r="30" fill="#94a3b8" stroke="#475569" stroke-width="6"/>
+                            <circle cx="300" cy="350" r="20" fill="#e2e8f0" stroke="#475569" stroke-width="4"/>
+                            <circle cx="300" cy="350" r="16" fill="#60a5fa" stroke="#3b82f6" stroke-width="2"/>
+                            <circle cx="294" cy="344" r="4" fill="#bfdbfe"/>
+                            <!-- 窗户2 铆钉 -->
+                            <circle cx="300" cy="326" r="2" fill="#475569"/>
+                            <circle cx="300" cy="374" r="2" fill="#475569"/>
+                            <circle cx="276" cy="350" r="2" fill="#475569"/>
+                            <circle cx="324" cy="350" r="2" fill="#475569"/>
+
+                            <!-- 大门 -->
+                            <path d="M 150 480 L 150 360 C 150 310 250 310 250 360 L 250 480 Z" fill="#94a3b8" stroke="#475569" stroke-width="8"/>
+                            <path d="M 160 480 L 160 365 C 160 325 240 325 240 365 L 240 480 Z" fill="#cbd5e1" stroke="#64748b" stroke-width="4"/>
+                            <line x1="160" y1="365" x2="240" y2="365" stroke="#94a3b8" stroke-width="2"/>
+                            <line x1="160" y1="400" x2="240" y2="400" stroke="#94a3b8" stroke-width="2"/>
+                            <line x1="160" y1="440" x2="240" y2="440" stroke="#94a3b8" stroke-width="2"/>
+                            <!-- 船舵门把手 -->
+                            <circle cx="225" cy="410" r="12" fill="none" stroke="#475569" stroke-width="3"/>
+                            <circle cx="225" cy="410" r="4" fill="#475569"/>
+                            <line x1="210" y1="410" x2="240" y2="410" stroke="#475569" stroke-width="3"/>
+                            <line x1="225" y1="395" x2="225" y2="425" stroke="#475569" stroke-width="3"/>
+                            <!-- 门框铆钉 -->
+                            <circle cx="150" cy="380" r="3" fill="#475569"/>
+                            <circle cx="150" cy="420" r="3" fill="#475569"/>
+                            <circle cx="150" cy="460" r="3" fill="#475569"/>
+                            <circle cx="250" cy="380" r="3" fill="#475569"/>
+                            <circle cx="250" cy="420" r="3" fill="#475569"/>
+                            <circle cx="250" cy="460" r="3" fill="#475569"/>
+                            <circle cx="200" cy="316" r="3" fill="#475569"/>
+                        </svg>
+                    </div>
+
+                    <div class="relative z-20 w-full bg-white/90 p-8 rounded-3xl backdrop-blur-md border-4 border-yellow-400 shadow-2xl">
+                        <h1 class="text-3xl font-black text-yellow-900 mb-2 text-center tracking-tighter">比奇堡测评室</h1>
+                        <p class="text-yellow-800 mb-6 font-bold text-center">快来通过挑战获得能量吧！🧽</p>
+                        <div class="space-y-4">
+                            <select id="select-student" class="w-full text-xl p-3 border-4 border-yellow-500 rounded-2xl font-bold shadow-inner outline-none bg-white text-yellow-900 cursor-pointer">
+                                <option value="">-- 我是谁？ --</option>
+                            </select>
+                            <select id="select-subject" class="w-full text-xl p-3 border-4 border-cyan-500 rounded-2xl font-bold shadow-inner outline-none bg-white text-cyan-900 cursor-pointer">
+                                <option value="">-- 挑战哪科？ --</option>
+                            </select>
+                            <button onclick="window.startExam()" class="w-full bg-pink-500 hover:bg-pink-600 text-white text-2xl font-black py-4 rounded-2xl border-b-8 border-pink-700 active:border-b-0 active:translate-y-2 mt-4 transition-all">开启挑战</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. 学生答题页面 -->
+        <div id="page-student-exam" class="page">
+            <div class="flex justify-between items-center bg-cyan-100/90 backdrop-blur p-4 rounded-2xl shadow-md mb-6 border-4 border-cyan-400 sticky top-20 z-40">
+                <span class="text-lg font-black text-cyan-800 flex items-center"><i data-lucide="star" class="w-6 h-6 mr-1 text-yellow-500"></i><span id="exam-display-name"></span></span>
+                <div class="text-right">
+                    <span id="exam-display-subject" class="block text-cyan-900 font-black"></span>
+                    <span class="bg-cyan-300 text-cyan-900 px-2 py-0.5 rounded-full font-bold text-xs">共 30 题</span>
+                </div>
+            </div>
+            <div id="questions-container" class="space-y-6">
+                <!-- 题目动态渲染在这里 -->
+            </div>
+            <button onclick="window.submitExam()" class="mt-8 w-full bg-green-500 hover:bg-green-600 text-white text-2xl font-black py-5 rounded-2xl border-b-8 border-green-700 active:border-b-0 active:translate-y-2 transition-all shadow-xl">提交挑战！</button>
+        </div>
+
+        <!-- 4. 学生完成页面 (带错题摘要) -->
+        <div id="page-student-finished" class="page">
+            <div class="max-w-xl mx-auto py-4">
+                <div class="bg-white rounded-[40px] shadow-2xl border-8 border-yellow-400 overflow-hidden relative">
+                    <div class="p-8 text-center border-b-4 border-dashed border-yellow-100 bg-yellow-50">
+                        <div id="result-icons" class="text-6xl mb-4 flex justify-center space-x-3 animate-bounce"></div>
+                        <h1 id="result-title" class="text-3xl font-black text-cyan-700 mb-1">荣誉报告单</h1>
+                        <p id="result-msg" class="text-yellow-600 font-bold">海绵宝宝为你点赞！👍</p>
+                    </div>
+                    <div class="p-6 space-y-6">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="bg-cyan-50 p-4 rounded-3xl border-2 border-cyan-200">
+                                <span class="text-gray-500 text-xs font-bold block mb-1">挑战者姓名</span>
+                                <span id="result-name" class="text-xl font-black text-cyan-800"></span>
+                            </div>
+                            <div class="bg-cyan-50 p-4 rounded-3xl border-2 border-cyan-200">
+                                <span class="text-gray-500 text-xs font-bold block mb-1">测评科目</span>
+                                <span id="result-subject" class="text-lg font-black text-cyan-800"></span>
+                            </div>
+                        </div>
+                        
+                        <div id="score-block" class="bg-pink-50 p-6 rounded-[30px] border-4 border-pink-200 flex items-center justify-between shadow-sm">
+                            <div>
+                                <span class="text-pink-400 text-sm font-black block">获得能量值</span>
+                                <span class="text-5xl font-black text-pink-500 tracking-tighter"><span id="result-score">0</span><span class="text-lg ml-1">分</span></span>
+                            </div>
+                            <div class="bg-white px-3 py-1 rounded-xl shadow-sm font-bold text-pink-600 border border-pink-100 text-[10px]">存档成功</div>
+                        </div>
+
+                        <!-- 错题摘要区 -->
+                        <div id="wrong-summary-block" class="bg-gray-50 p-5 rounded-[30px] border-2 border-gray-200">
+                            <h3 class="text-md font-black text-gray-700 mb-3 flex items-center"><i data-lucide="clipboard-check" class="w-4 h-4 mr-1 text-green-500"></i>错题摘要分析</h3>
+                            <div id="wrong-list" class="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar text-sm">
+                                <!-- 错题动态生成 -->
+                            </div>
+                        </div>
+
+                        <div class="text-center py-2">
+                            <p class="text-gray-400 text-xs font-bold mb-4 animate-pulse"><i data-lucide="camera" class="inline w-3 h-3 mr-1"></i> 请截图保存报告发给老师打卡</p>
+                            <button onclick="window.navTo('student')" class="w-full bg-cyan-400 hover:bg-cyan-500 text-white font-black py-4 rounded-2xl border-b-8 border-cyan-600 active:border-b-0 active:translate-y-2 text-xl transition-all">返回首页</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. 蟹老板后台登录页 -->
+        <div id="page-teacher-login" class="page">
+            <div class="flex flex-col items-center justify-center pt-20">
+                <div class="bg-white/90 p-10 rounded-3xl shadow-2xl w-full max-w-md text-center border-4 border-indigo-300 backdrop-blur">
+                    <i data-lucide="anchor" class="w-20 h-20 text-indigo-500 mx-auto mb-4 drop-shadow-md"></i>
+                    <h1 class="text-3xl font-black text-indigo-900 mb-2">蟹老板的保险柜</h1>
+                    <p class="text-indigo-700 mb-8 font-bold">验证通过后方可进入工作台</p>
+                    <div class="space-y-4">
+                        <input type="password" id="teacher-pwd-input" placeholder="请输入管理员密码" class="w-full text-xl p-4 border-4 border-indigo-200 rounded-2xl text-center font-bold bg-white/80 outline-none focus:border-indigo-400">
+                        <button onclick="window.teacherLogin()" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white text-2xl font-black py-4 rounded-2xl border-b-8 border-indigo-700 active:border-b-0 active:translate-y-2 transition-all">开锁验证</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 6. 蟹老板后台看板 -->
+        <div id="page-teacher-dashboard" class="page max-w-7xl mx-auto">
+            <div class="bg-white/95 backdrop-blur p-6 rounded-3xl shadow-xl border-4 border-indigo-200 overflow-hidden relative">
+                <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+                    <h3 class="text-2xl font-black text-indigo-900 flex items-center tracking-tighter"><i data-lucide="anchor" class="w-6 h-6 mr-2"></i>蟹老板成绩单 (本地模式)</h3>
+                    <div class="flex flex-wrap gap-2 justify-center">
+                        <input type="text" id="search-name" placeholder="🔍 搜名字" class="p-2 border-2 rounded-xl w-24 sm:w-32 font-bold text-xs outline-none" oninput="window.renderTable()">
+                        <select id="search-subject" class="p-2 border-2 rounded-xl font-bold text-xs outline-none" onchange="window.renderTable()">
+                            <option value="">全科目</option>
+                        </select>
+                        <button onclick="window.clearLocalData()" class="bg-red-100 text-red-700 px-3 py-1 rounded-xl font-black text-xs hover:bg-red-200 border-b-4 border-red-200">清空数据</button>
+                        <button onclick="window.navTo('teacher')" class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-xl font-black text-xs hover:bg-indigo-200 border-b-4 border-indigo-200">退出</button>
+                    </div>
+                </div>
+                <div class="overflow-x-auto bg-indigo-50 rounded-2xl p-2 border-2 border-indigo-200 shadow-inner custom-scrollbar">
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="text-indigo-900 border-b-2 border-indigo-300">
+                                <th class="p-3 font-black text-xs">挑战者</th>
+                                <th class="p-3 font-black text-xs text-center">科目</th>
+                                <th class="p-3 font-black text-xs text-center">能量</th>
+                                <th class="p-3 font-black text-xs text-center">详情</th>
+                            </tr>
+                        </thead>
+                        <tbody id="results-tbody">
+                            <!-- 成绩数据 -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- ⭐ 小海星形状的一键锁站机关 (右下角) -->
+                <div class="fixed bottom-6 right-6 z-[100] flex flex-col items-end group opacity-30 hover:opacity-100 transition-opacity duration-300">
+                    <div class="flex flex-col items-center justify-center bg-white/95 p-3 rounded-2xl shadow-xl border-2 border-rose-200 mb-2 scale-0 group-hover:scale-100 transition-transform origin-bottom-right">
+                       <p class="text-[10px] font-black text-rose-500 mb-2">最高权限: 锁站</p>
+                       <input type="password" id="lock-pwd-input" placeholder="请输入暗号" class="w-20 p-1.5 text-xs rounded-lg border-2 border-rose-200 text-center font-bold outline-none focus:border-rose-400 mb-2 bg-white" onkeypress="if(event.key === 'Enter') window.toggleSiteLock()">
+                       <button onclick="window.toggleSiteLock()" id="lock-btn-ui" class="w-full py-1.5 rounded-lg text-white text-xs font-black shadow-sm transition-all border-b-4 active:border-b-0 active:translate-y-1 bg-rose-400 border-rose-600 hover:bg-rose-500">
+                         一键关店
+                       </button>
+                    </div>
+                    <button class="p-2 rounded-full bg-rose-100 border-4 border-rose-300 shadow-xl cursor-pointer hover:rotate-12 transition-all hover:scale-110">
+                      <!-- 派大星颜色的海星 SVG -->
+                      <svg viewBox="0 0 24 24" fill="#fda4af" stroke="#e11d48" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8 text-rose-500">
+                        <path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 5.94 6.27.42a.53.53 0 0 1 .3.93l-4.82 4.09 1.5 6.1a.53.53 0 0 1-.79.57l-5.32-3.3-5.32 3.3a.53.53 0 0 1-.79-.57l1.5-6.1-4.82-4.09a.53.53 0 0 1 .3-.93l6.27-.42 2.31-5.94z"/>
+                      </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 7. 蟹老板详情页 -->
+        <div id="page-teacher-detail" class="page max-w-4xl mx-auto">
+            <div class="bg-white/95 p-6 rounded-3xl shadow-xl border-4 border-indigo-200">
+                <div class="flex justify-between items-center mb-4 border-b-4 border-indigo-100 pb-4">
+                    <h2 class="text-xl font-black text-indigo-900" id="detail-title">答卷详情</h2>
+                    <button onclick="window.navTo('teacher-dashboard')" class="bg-indigo-100 text-indigo-800 px-4 py-2 rounded-xl font-bold text-sm">返回列表</button>
+                </div>
+                <div id="detail-content" class="space-y-4"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 💡 原生 JavaScript 业务逻辑 (纯本地版，无云端依赖) -->
+    <script>
+        // === 核心数据 ===
+        const STUDENT_LIST = ['张博琪', '林晋宇', '官鑫玥', '陈德宇', '王徐杰', '刘康宸', '谭可馨', '叶忠羽', '朱佳杰', '汪梓馨', '王承希', '杨启悦', '胡文馨', '曾丽颖', '余娜莹', '曾昕瑜', '曾亦顺', '吴继轩', '余连莹', '王智英', '饶恩泽', '林思晨', '傅成志', '胡天佑', '朱佳顺', '蒋汉缤', '何钰婷', '谢勇明', '方思瀚', '余锦豪', '邱嫣雅', '陈欣妍', '周雨菲', '吴云举', '李志颖', '陈东睿', '陈俊熙', '朱烁宇', '汪宏伟', '张艺彤', '徐艺婷', '毛柏贤', '童晨露', '占周佳和', '李恩琪', '郑楚莹', '杨悦沁', '占佳豪'];
+        
+        const SUBJECT_CONFIG = {
+            '基本国情常识': { mode: 'exam', questions: [] },
+            '劳动': { mode: 'exam', questions: [] },
+            '神奇海螺心理测试(演示)': {
+                mode: 'survey',
+                questions: [
+                    { id: 'p1', type: 'mc', text: '遇到不懂的问题时，你通常会？', options: ['马上举手问', '悄悄问同学', '自己查资料', '放着不管'], answer: 0 },
+                    { id: 'p2', type: 'mc', text: '好朋友不开心了，你会？', options: ['讲笑话', '安静陪着', '送礼物', '帮他解决'], answer: 0 }
+                ]
+            }
+        };
+
+        // 填充国情题 136 题
+        const nationalRaw = [
+            { id: 'q1', type: 'tf', text: '中国的全称是中华人民共和国。', options: ['正确', '错误'], answer: 0 },
+            { id: 'q2', type: 'tf', text: '新中国成立于1949年10月1日。', options: ['正确', '错误'], answer: 0 },
+            { id: 'q3', type: 'tf', text: '中国的国旗是五星红旗。', options: ['正确', '错误'], answer: 0 },
+            { id: 'q4', type: 'tf', text: '国徽上五颗星代表中国共产党领导下的人民站起来了。', options: ['正确', '错误'], answer: 0 },
+            { id: 'q5', type: 'tf', text: '国徽上的齿轮象征农民阶级。', options: ['正确', '错误'], answer: 1 },
+            { id: 'q6', type: 'tf', text: '中国的地图呈雄鸡形状。', options: ['正确', '错误'], answer: 0 },
+            { id: 'q7', type: 'tf', text: '中国的国土面积约960万平方千米。', options: ['正确', '错误'], answer: 0 },
+            { id: 'q8', type: 'tf', text: '中国人口最多的少数民族是汉族。', options: ['正确', '错误'], answer: 1 },
+            { id: 'q9', type: 'tf', text: '中国最高的山峰是泰山。', options: ['正确', '错误'], answer: 1 },
+            { id: 'q10', type: 'mc', text: '中国国歌的曲作者是谁？', options: ['田汉', '曾联松', '聂耳'], answer: 2 },
+            { id: 'q11', type: 'mc', text: '下列哪个城市是我国的直辖市？', options: ['广州', '重庆', '深圳'], answer: 1 },
+            { id: 'q12', type: 'mc', text: '中国的国球是？', options: ['羽毛球', '足球', '乒乓球'], answer: 2 }
+        ];
+        SUBJECT_CONFIG['基本国情常识'].questions = [...nationalRaw];
+        for(let i=13; i<=136; i++) {
+            SUBJECT_CONFIG['基本国情常识'].questions.push({ id: `q${i}`, type: 'mc', text: `国情拓展题 第${i}题`, options: ['正确选项', '干扰A', '干扰B'], answer: 0 });
+        }
+
+        // 填充劳动题 40 题
+        const laborRaw = [
+            { id: 'l1', type: 'mc', text: '【清洁与卫生】下列哪种情况不需要立即洗手？', options: ['擤鼻涕后', '接触动物后', '看完电视后', '处理生肉后'], answer: 2 },
+            { id: 'l2', type: 'mc', text: '【整理与收纳】家里多双袜子，最好的收纳方法是？', options: ['扔在抽屉里', '一双双配对叠好', '随便团一团', '全部挂起来'], answer: 1 },
+            { id: 'l3', type: 'mc', text: '【现代服务业】在餐厅就餐，不文明行为是？', options: ['主动排队', '大声喧哗', '礼貌道谢', '餐后整理'], answer: 1 },
+            { id: 'lm1', type: 'ms', text: '【多选】属于清洁与卫生劳动的有？', options: ['扫地擦桌', '洗手消毒', '清理垃圾', '乱扔杂物'], answer: [0, 1, 2] },
+            { id: 'lm2', type: 'ms', text: '【多选】属于整理与收纳劳动的有？', options: ['整理书包', '收拾衣柜', '摆放文具', '物品归位'], answer: [0, 1, 2, 3] },
+            { id: 'lm3', type: 'ms', text: '【多选】家用器具安全使用正确的有？', options: ['湿手不碰电', '用完断电', '不乱拆电器', '微波炉热鸡蛋'], answer: [0, 1, 2] },
+            { id: 'lt1', type: 'tf', text: '勤洗手、常通风有利于身体健康。', options: ['正确', '错误'], answer: 0 },
+            { id: 'lt2', type: 'tf', text: '炒菜时可以把脸凑近油锅观察。', options: ['正确', '错误'], answer: 1 },
+            { id: 'ls1', type: 'tf', text: '小浩把生肉和熟食直接放在一起进冰箱。', options: ['正确', '错误'], answer: 1 },
+            { id: 'ls2', type: 'tf', text: '小雨主动参与校园拔草，不破坏花草。', options: ['正确', '错误'], answer: 0 }
+        ];
+        SUBJECT_CONFIG['劳动'].questions = [...laborRaw];
+        for(let i=11; i<=40; i++) {
+            SUBJECT_CONFIG['劳动'].questions.push({ id: `l${i}`, type: 'tf', text: `劳动实践考核 第${i}题`, options: ['正确', '错误'], answer: 0 });
+        }
+
+        // === 状态管理 (使用 LocalStorage 本地存储) ===
+        let state = {
+            currentStudent: '', currentSubject: '', mode: 'exam',
+            activeQuestions: [], answers: {}, score: 0, wrongDetails: [],
+            isSiteLocked: localStorage.getItem('bikinibottom_locked') === 'true',
+            teacherLoggedIn: false, 
+            allResults: JSON.parse(localStorage.getItem('bikinibottom_results') || '[]')
+        };
+
+        // === 核心逻辑 ===
+        window.showToast = (msg) => {
+            const el = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = msg;
+            el.classList.remove('opacity-0', '-translate-y-20');
+            el.classList.add('opacity-100', 'translate-y-0');
+            setTimeout(() => { el.classList.remove('opacity-100', 'translate-y-0'); el.classList.add('opacity-0', '-translate-y-20'); }, 2500);
+        };
+
+        window.navTo = (target) => {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById('nav-student').className = "px-4 py-2 rounded-xl font-black text-xs sm:text-sm text-cyan-700 hover:bg-cyan-100 transition-all shadow-none border-b-4 border-transparent";
+            document.getElementById('nav-teacher').className = "px-4 py-2 rounded-xl font-black text-xs sm:text-sm text-cyan-700 hover:bg-cyan-100 transition-all ml-1 border-b-4 border-transparent";
+
+            if (state.isSiteLocked && target === 'student') target = 'locked';
+
+            if(target === 'student') {
+                document.getElementById('page-student-login').classList.add('active');
+                document.getElementById('nav-student').className = "px-4 py-2 rounded-xl font-black text-xs sm:text-sm bg-yellow-400 text-yellow-900 border-b-4 border-yellow-600 transition-all shadow-md";
+            } else if(target === 'teacher') {
+                document.getElementById('nav-teacher').className = "px-4 py-2 rounded-xl font-black text-xs sm:text-sm bg-indigo-500 text-white border-b-4 border-indigo-700 transition-all ml-1 shadow-md";
+                document.getElementById(state.teacherLoggedIn ? 'page-teacher-dashboard' : 'page-teacher-login').classList.add('active');
+            } else if(target === 'teacher-dashboard') {
+                document.getElementById('page-teacher-dashboard').classList.add('active');
+                window.renderTable();
+            } else if (target === 'locked') {
+                document.getElementById('page-locked').classList.add('active');
+            }
+        };
+
+        const shuffle = (arr) => [...arr].sort(()=>Math.random()-0.5);
+
+        window.startExam = () => {
+            const name = document.getElementById('select-student').value;
+            const sub = document.getElementById('select-subject').value;
+            if(!name || !sub) return window.showToast('请先选择名字和科目哦！');
+            
+            state.currentStudent = name;
+            state.currentSubject = sub;
+            state.mode = SUBJECT_CONFIG[sub].mode;
+            state.answers = {};
+            
+            const pool = SUBJECT_CONFIG[sub].questions;
+            state.activeQuestions = state.mode === 'exam' ? shuffle(pool).slice(0, 30) : pool;
+            
+            document.getElementById('exam-display-name').innerText = name;
+            document.getElementById('exam-display-subject').innerText = sub;
+            
+            const html = state.activeQuestions.map((q, i) => {
+                const badge = q.type==='tf'?'bg-purple-100 text-purple-700 border-purple-200':(q.type==='ms'?'bg-orange-100 text-orange-700 border-orange-200':'bg-yellow-100 text-yellow-700 border-yellow-200');
+                const badgeText = q.type==='tf'?'判断':(q.type==='ms'?'多选':'单选');
+                const opts = q.options.map((opt, oi) => `
+                    <div onclick="window.selectAnswer('${q.id}', ${oi}, ${q.type==='ms'})" id="opt-${q.id}-${oi}" class="option-btn p-4 rounded-2xl border-4 border-cyan-100 cursor-pointer font-bold flex items-center bg-white text-cyan-800 shadow-sm">
+                        <div class="indicator w-6 h-6 rounded-md border-2 border-cyan-300 mr-3 flex items-center justify-center"></div>
+                        ${q.type!=='tf'?`<span class="mr-2 text-cyan-400">${String.fromCharCode(65+oi)}.</span>`:''}${opt}
+                    </div>
+                `).join('');
+                return `
+                    <div id="qbox-${i}" class="bg-white/95 p-6 rounded-3xl shadow-lg border-4 border-cyan-300">
+                        <div class="flex items-start mb-4">
+                            <span class="px-3 py-1 rounded-lg text-xs font-bold mr-3 border-2 ${badge}">${badgeText}</span>
+                            <h3 class="text-xl font-bold text-cyan-950">${i+1}. ${q.text}</h3>
+                        </div>
+                        <div class="space-y-3">${opts}</div>
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('questions-container').innerHTML = html;
+            
+            document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+            document.getElementById('page-student-exam').classList.add('active');
+            window.scrollTo(0,0);
+        };
+
+        window.selectAnswer = (qid, oi, isMs) => {
+            if(!isMs) {
+                state.answers[qid] = oi;
+                const q = state.activeQuestions.find(x=>x.id===qid);
+                q.options.forEach((_, i) => {
+                    const el = document.getElementById(`opt-${qid}-${i}`);
+                    el.classList.remove('border-pink-500','bg-pink-50','text-pink-700');
+                    el.querySelector('.indicator').classList.remove('bg-pink-500','border-pink-500');
+                    el.querySelector('.indicator').innerHTML = '';
+                });
+                const sel = document.getElementById(`opt-${qid}-${oi}`);
+                sel.classList.add('border-pink-500','bg-pink-50','text-pink-700');
+                sel.querySelector('.indicator').classList.add('bg-pink-500','border-pink-500');
+                sel.querySelector('.indicator').innerHTML = '<i data-lucide="check" class="w-4 h-4 text-white"></i>';
+                lucide.createIcons();
+            } else {
+                let curr = state.answers[qid] || [];
+                if(curr.includes(oi)) curr = curr.filter(x=>x!==oi); else curr.push(oi);
+                state.answers[qid] = curr;
+                const el = document.getElementById(`opt-${qid}-${oi}`);
+                const ind = el.querySelector('.indicator');
+                if(curr.includes(oi)) {
+                    el.classList.add('border-pink-500','bg-pink-50','text-pink-700');
+                    ind.classList.add('bg-pink-500','border-pink-500');
+                    ind.innerHTML = '<i data-lucide="check" class="w-4 h-4 text-white"></i>';
+                } else {
+                    el.classList.remove('border-pink-500','bg-pink-50','text-pink-700');
+                    ind.classList.remove('bg-pink-500','border-pink-500');
+                    ind.innerHTML = '';
+                }
+                lucide.createIcons();
+            }
+        };
+
+        window.submitExam = async () => {
+            for(let i=0; i<state.activeQuestions.length; i++) {
+                const q = state.activeQuestions[i];
+                if(state.answers[q.id]===undefined || (q.type==='ms' && state.answers[q.id].length===0)) {
+                    window.showToast(`第 ${i+1} 题还没做呢！`);
+                    document.getElementById(`qbox-${i}`).scrollIntoView({behavior:'smooth', block:'center'});
+                    return;
+                }
+            }
+
+            let correct = 0; state.wrongDetails = [];
+            state.activeQuestions.forEach((q, i) => {
+                const ans = state.answers[q.id];
+                let isC = false;
+                if(q.type === 'ms') {
+                    isC = Array.isArray(ans) && ans.length === q.answer.length && ans.every(v => q.answer.includes(v));
+                } else {
+                    isC = ans === q.answer;
+                }
+                if(isC) correct++;
+                else state.wrongDetails.push({num: i+1, text: q.text, correct: Array.isArray(q.answer)?q.answer.map(x=>q.options[x]).join(','):q.options[q.answer]});
+            });
+
+            state.score = state.mode==='exam' ? Math.round((correct/state.activeQuestions.length)*100) : '完成';
+            const resObj = { 
+                id: Date.now().toString(), 
+                name: state.currentStudent, subject: state.currentSubject, score: state.score, mode: state.mode, 
+                date: new Date().toLocaleString(), timestamp: Date.now(), 
+                questions: state.activeQuestions, answers: state.answers, wrongDetails: state.wrongDetails 
+            };
+
+            // 本地保存
+            state.allResults.push(resObj);
+            localStorage.setItem('bikinibottom_results', JSON.stringify(state.allResults));
+            
+            // 渲染完成页面
+            document.getElementById('result-name').innerText = state.currentStudent;
+            document.getElementById('result-subject').innerText = state.currentSubject;
+            
+            if(state.mode==='exam') {
+                document.getElementById('result-score').innerText = state.score;
+                document.getElementById('score-block').style.display = 'flex';
+                document.getElementById('wrong-summary-block').style.display = 'block';
+                document.getElementById('result-icons').innerHTML = state.score>=95?'<span>🧽</span><span>🍍</span><span>⭐</span>':(state.score>=60?'<span>🍔</span><span>⭐</span>':'<span>🐌</span>');
+                document.getElementById('result-title').innerText = '荣誉报告单';
+                document.getElementById('result-msg').innerText = '海绵宝宝为你点赞！👍';
+                
+                const wl = document.getElementById('wrong-list');
+                if(state.wrongDetails.length===0) wl.innerHTML = '<div class="text-green-600 font-bold text-center py-2">✨ 完美挑战！一道都没错！</div>';
+                else wl.innerHTML = state.wrongDetails.map(w => `
+                    <div class="bg-white p-3 rounded-xl border border-gray-100 shadow-sm mb-2">
+                        <span class="font-black text-red-500 mr-1">第${w.num}题:</span>
+                        <span class="text-gray-600">${w.text}</span>
+                        <div class="mt-1 text-green-600 font-bold bg-green-50 p-1.5 rounded-lg text-xs">正确答案：${w.correct}</div>
+                    </div>`).join('');
+            } else {
+                document.getElementById('score-block').style.display = 'none';
+                document.getElementById('wrong-summary-block').style.display = 'none';
+                document.getElementById('result-icons').innerHTML = '<span>💖</span><span>🌈</span><span>🌟</span>';
+                document.getElementById('result-title').innerText = '心语收集完成';
+                document.getElementById('result-msg').innerText = '你都是最棒的自己！';
+            }
+
+            document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+            document.getElementById('page-student-finished').classList.add('active');
+            window.scrollTo(0,0);
+        };
+
+        // --- 老师后台逻辑 ---
+        window.teacherLogin = () => {
+            const pwd = document.getElementById('teacher-pwd-input').value;
+            if(pwd === '5360301') {
+                state.teacherLoggedIn = true;
+                window.navTo('teacher-dashboard');
+                window.renderTable();
+                document.getElementById('teacher-pwd-input').value = '';
+            } else window.showToast('密码错误，蟹老板！');
+        };
+
+        window.renderTable = () => {
+            const nameQ = document.getElementById('search-name').value;
+            const subQ = document.getElementById('search-subject').value;
+            const sortedResults = [...state.allResults].sort((a,b)=>b.timestamp-a.timestamp);
+            const filtered = sortedResults.filter(r => (!subQ || r.subject===subQ) && (!nameQ || r.name.includes(nameQ)));
+            document.getElementById('results-tbody').innerHTML = filtered.map(r => `
+                <tr class="border-b border-indigo-100 hover:bg-white">
+                    <td class="p-2"><div class="font-black text-indigo-900 text-sm">${r.name}</div><div class="text-[9px] text-gray-400">${r.date}</div></td>
+                    <td class="p-2 text-center"><span class="text-[10px] bg-white border border-indigo-100 px-2 py-0.5 rounded-full font-bold text-indigo-600">${r.subject}</span></td>
+                    <td class="p-2 text-center font-black text-sm ${r.mode==='survey'?'text-purple-500':'text-pink-500'}">${r.mode==='survey'?'❤️':r.score}</td>
+                    <td class="p-2 text-center"><button onclick="window.viewDetail('${r.id}')" class="bg-indigo-400 text-white px-2 py-1 rounded text-[10px] font-bold shadow-sm hover:bg-indigo-500">查阅</button></td>
+                </tr>
+            `).join('') || `<tr><td colspan="4" class="p-4 text-center text-gray-400 text-xs font-bold">暂无记录</td></tr>`;
+        };
+
+        window.viewDetail = (id) => {
+            const r = state.allResults.find(x=>x.id===id);
+            if(!r) return;
+            document.getElementById('detail-title').innerText = r.name + ' 的记录';
+            document.getElementById('detail-content').innerHTML = r.questions.map((q, i) => {
+                const ans = r.answers[q.id];
+                const isC = Array.isArray(q.answer) ? (Array.isArray(ans) && ans.length===q.answer.length && ans.every(v=>q.answer.includes(v))) : ans===q.answer;
+                const stuText = Array.isArray(ans) ? ans.map(x=>q.options[x]).join(',') : q.options[ans];
+                const corText = Array.isArray(q.answer) ? q.answer.map(x=>q.options[x]).join(',') : q.options[q.answer];
+                return `
+                    <div class="p-4 rounded-xl border-2 ${isC?'border-green-100 bg-green-50':'border-red-100 bg-red-50'}">
+                        <p class="font-bold text-sm mb-1">${i+1}. ${q.text}</p>
+                        <p class="text-xs font-black ${isC?'text-green-600':'text-red-500'}">学生选：${stuText}</p>
+                        ${!isC ? `<p class="text-xs font-black text-green-600 mt-1">正确答：${corText}</p>` : ''}
+                    </div>
+                `;
+            }).join('');
+            document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+            document.getElementById('page-teacher-detail').classList.add('active');
+        };
+
+        window.toggleSiteLock = () => {
+            const pwd = document.getElementById('lock-pwd-input').value;
+            if(pwd === 'zsy166569') {
+                state.isSiteLocked = !state.isSiteLocked;
+                localStorage.setItem('bikinibottom_locked', state.isSiteLocked);
+                window.showToast(state.isSiteLocked ? '🔒 关店成功！' : '🔓 开放成功！');
+                document.getElementById('lock-pwd-input').value = '';
+                updateLockUI();
+            } else window.showToast('海星暗号错误！');
+        };
+
+        window.clearLocalData = () => {
+            if(confirm("确定要清空所有保存在这台电脑上的成绩吗？操作不可逆哦！")) {
+                localStorage.removeItem('bikinibottom_results');
+                state.allResults = [];
+                window.renderTable();
+                window.showToast("已清空本地记录");
+            }
+        };
+
+        const updateLockUI = () => {
+            const btn = document.getElementById('lock-btn-ui');
+            if(btn) {
+                btn.className = `w-full py-1.5 rounded-lg text-white text-xs font-black shadow-sm transition-all border-b-4 active:border-b-0 active:translate-y-1 ${state.isSiteLocked ? 'bg-green-500 border-green-700 hover:bg-green-600' : 'bg-rose-400 border-rose-600 hover:bg-rose-500'}`;
+                btn.innerText = state.isSiteLocked ? '解锁开放' : '一键关店';
+            }
+        };
+
+        window.onload = () => {
+            STUDENT_LIST.forEach(n => document.getElementById('select-student').innerHTML += `<option value="${n}">${n}</option>`);
+            Object.keys(SUBJECT_CONFIG).forEach(s => {
+                document.getElementById('select-subject').innerHTML += `<option value="${s}">${s}</option>`;
+                document.getElementById('search-subject').innerHTML += `<option value="${s}">${s}</option>`;
+            });
+            lucide.createIcons();
+
+            // 根据本地锁站状态决定首页
+            if (state.isSiteLocked) {
+                updateLockUI();
+                document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+                document.getElementById('page-locked').classList.add('active');
+            }
+        };
+    </script>
+<script src="script.js"></script>
+</body>
+</html>
